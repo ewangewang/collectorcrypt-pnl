@@ -1,11 +1,10 @@
 "use client"
 
 import {
+  Area,
   Bar,
   CartesianGrid,
-  Cell,
   ComposedChart,
-  Line,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -31,6 +30,36 @@ type ChartRow = {
   incomplete: boolean
 }
 
+type CandleProps = {
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  payload?: ChartRow
+}
+
+function PnlCandle({ x = 0, y = 0, width = 0, height = 0, payload }: CandleProps) {
+  if (!payload || width <= 0) return null
+  const fill = payload.pnl > 0 ? POSITIVE : payload.pnl < 0 ? NEGATIVE : FLAT
+  const bodyWidth = Math.max(2, Math.min(14, width * 0.62))
+  const bodyX = x + (width - bodyWidth) / 2
+  const wickX = x + width / 2
+  const bodyHeight = Math.max(height, 1.5)
+  return (
+    <g>
+      <line
+        x1={wickX}
+        x2={wickX}
+        y1={y - 2}
+        y2={y + bodyHeight + 2}
+        stroke={fill}
+        strokeWidth={1}
+      />
+      <rect x={bodyX} y={y} width={bodyWidth} height={bodyHeight} rx={1.5} fill={fill} />
+    </g>
+  )
+}
+
 function ChartTooltip({
   active,
   payload,
@@ -54,6 +83,16 @@ function ChartTooltip({
   )
 }
 
+function domain(values: number[]): [number, number] {
+  const dataMin = Math.min(...values)
+  const dataMax = Math.max(...values)
+  const min = Math.min(0, dataMin)
+  const max = Math.max(0, dataMax)
+  const span = Math.max(max - min, 1)
+  const pad = span * 0.08
+  return [min - (min < 0 ? pad : 0), max + (max > 0 ? pad : span * 0.03)]
+}
+
 export function PnlChart({ points }: { points: SeriesPoint[] }) {
   const rows: ChartRow[] = points.map((point) => ({
     key: point.key,
@@ -65,26 +104,52 @@ export function PnlChart({ points }: { points: SeriesPoint[] }) {
     cumulativeMicros: point.cumulativeMicros,
     incomplete: point.incomplete,
   }))
-  const values = rows.flatMap((row) => [row.pnl, row.cumulative, 0])
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const pad = Math.max((max - min) * 0.12, 1)
+  const tickGap = rows.length > 24 ? 48 : 28
 
   return (
-    <div className="h-72 w-full min-w-0 overflow-x-auto sm:h-80">
-      <div
-        className="h-full"
-        style={{ minWidth: Math.max(560, rows.length * (rows.length > 60 ? 16 : 28)) }}
-      >
+    <div className="w-full min-w-0">
+      <div className="h-44 w-full sm:h-52">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={rows} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
+          <ComposedChart data={rows} syncId="pnl" margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="pnl-curve" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={LINE} stopOpacity={0.35} />
+                <stop offset="100%" stopColor={LINE} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+            <XAxis dataKey="label" hide />
+            <YAxis
+              tickFormatter={(value: number) => formatAxisUsd(Math.round(value * 1_000_000))}
+              tick={{ fill: "#a1a1aa", fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              width={52}
+              domain={domain(rows.map((row) => row.cumulative))}
+            />
+            <Tooltip content={<ChartTooltip />} cursor={{ stroke: "rgba(228,194,122,0.35)" }} />
+            <Area
+              type="monotone"
+              dataKey="cumulative"
+              stroke={LINE}
+              strokeWidth={2.5}
+              fill="url(#pnl-curve)"
+              dot={rows.length < 3}
+              activeDot={{ r: 4, fill: LINE }}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="h-32 w-full sm:h-36">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={rows} syncId="pnl" margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
             <XAxis
               dataKey="label"
               tick={{ fill: "#a1a1aa", fontSize: 11 }}
               tickLine={false}
               axisLine={false}
-              minTickGap={28}
+              minTickGap={tickGap}
               interval="preserveStartEnd"
             />
             <YAxis
@@ -92,30 +157,12 @@ export function PnlChart({ points }: { points: SeriesPoint[] }) {
               tick={{ fill: "#a1a1aa", fontSize: 11 }}
               tickLine={false}
               axisLine={false}
-              width={56}
-              domain={[min - pad, max + pad]}
+              width={52}
+              domain={domain(rows.map((row) => row.pnl))}
             />
             <ReferenceLine y={0} stroke="rgba(255,255,255,0.28)" />
-            <Tooltip
-              content={<ChartTooltip />}
-              cursor={{ fill: "rgba(255,255,255,0.04)" }}
-            />
-            <Bar dataKey="pnl" radius={[3, 3, 0, 0]} maxBarSize={22}>
-              {rows.map((row) => (
-                <Cell
-                  key={row.key}
-                  fill={row.pnl > 0 ? POSITIVE : row.pnl < 0 ? NEGATIVE : FLAT}
-                />
-              ))}
-            </Bar>
-            <Line
-              type="monotone"
-              dataKey="cumulative"
-              stroke={LINE}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4, fill: LINE }}
-            />
+            <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+            <Bar dataKey="pnl" shape={<PnlCandle />} maxBarSize={18} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>

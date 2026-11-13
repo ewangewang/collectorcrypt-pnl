@@ -221,6 +221,29 @@ describe("series bucketing", () => {
     assert.equal(daily30.rangeNetMicros, summed)
   })
 
+  it("skips buckets with no transactions", () => {
+    const quiet: LedgerTransaction[] = [0, 12].map((age) => ({
+      id: `gap:${age}`,
+      at: new Date(now.getTime() - age * 24 * 60 * 60 * 1000).toISOString(),
+      kind: "pack" as const,
+      title: "Card",
+      detail: null,
+      spentMicros: 1_000_000,
+      returnedMicros: 0,
+      pnlMicros: -1_000_000,
+      unconfirmedReturnMicros: null,
+      signature: null,
+      buybackSignature: null,
+      source: "cc",
+      flags: [],
+      counted: true,
+    }))
+    const series = buildSeries(quiet, { timeZone: zone, bucket: "day", range: "ALL", now })
+    assert.equal(series.points.length, 2)
+    assert.equal(series.points[0]?.key < series.points[1]?.key, true)
+    assert.equal(series.points[1]?.cumulativeMicros, -2_000_000)
+  })
+
   it("starts weeks on Monday", () => {
     const key = weekKey(new Date("2026-11-14T00:30:00.000Z"), zone)
     const [year, month, day] = key.split("-").map(Number)
