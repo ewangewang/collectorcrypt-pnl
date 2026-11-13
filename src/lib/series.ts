@@ -155,15 +155,13 @@ export function buildSeries(
     endKey = swap
   }
 
-  const slots = new Map<string, { pnl: number; incomplete: boolean }>()
-  for (const key of enumerateKeys(startKey, endKey, options.bucket)) {
-    slots.set(key, { pnl: 0, incomplete: false })
-  }
-
+  const slots = new Map<string, { pnl: number; incomplete: boolean; activity: boolean }>()
   let incompleteCount = 0
   for (const transaction of dated) {
     const key = bucketKey(new Date(transaction.at as string), options.bucket, options.timeZone)
-    const slot = slots.get(key) ?? { pnl: 0, incomplete: false }
+    if (key < startKey || key > endKey) continue
+    const slot = slots.get(key) ?? { pnl: 0, incomplete: false, activity: false }
+    slot.activity = true
     if (transaction.pnlMicros == null) {
       slot.incomplete = true
       incompleteCount += 1
@@ -173,7 +171,7 @@ export function buildSeries(
     slots.set(key, slot)
   }
 
-  const keys = [...slots.keys()].sort()
+  const keys = [...slots.keys()].filter((key) => slots.get(key)?.activity).sort()
   let cumulative = 0
   const points = keys.map((key) => {
     const slot = slots.get(key) ?? { pnl: 0, incomplete: false }

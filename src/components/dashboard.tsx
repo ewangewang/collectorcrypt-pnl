@@ -22,6 +22,7 @@ const BUCKETS: { id: Bucket; label: string }[] = [
   { id: "month", label: "Monthly" },
 ]
 const PAGE_SIZE = 25
+const EXAMPLE_WALLET = "7nB56jAXaU6qdQcDCH4MvPbztoemeZvAGpworbEHnPKW"
 
 const SOURCE_LABELS: Record<string, string> = {
   cc: "Collector Crypt",
@@ -125,6 +126,19 @@ export function Dashboard() {
     }
   }, [requested, reload])
 
+  function loadAddress(next: string) {
+    setFormError(null)
+    setFailure(null)
+    setWallet(next)
+    if (next === requested) {
+      setReport(null)
+      setReload((value) => value + 1)
+      return
+    }
+    setReport(null)
+    router.replace(`/?wallet=${encodeURIComponent(next)}`)
+  }
+
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const next = wallet.trim()
@@ -132,15 +146,7 @@ export function Dashboard() {
       setFormError("Enter a valid Solana wallet address.")
       return
     }
-    setFormError(null)
-    setFailure(null)
-    if (next === initial) {
-      setReport(null)
-      setReload((value) => value + 1)
-      return
-    }
-    setReport(null)
-    router.replace(`/?wallet=${encodeURIComponent(next)}`)
+    loadAddress(next)
   }
 
   const summary = useMemo(
@@ -227,6 +233,13 @@ export function Dashboard() {
                 {loading ? "Loading…" : "Show PnL"}
               </Button>
             </form>
+            <button
+              type="button"
+              className="mt-3 text-left font-mono text-xs text-[#E4C27A] hover:underline"
+              onClick={() => loadAddress(EXAMPLE_WALLET)}
+            >
+              Example {EXAMPLE_WALLET}
+            </button>
           </CardContent>
         </Card>
 
@@ -346,9 +359,9 @@ export function Dashboard() {
               <CardHeader>
                 <CardTitle>PnL over time</CardTitle>
                 <CardDescription>
-                  Bars are the profit or loss inside each bucket. The line is the running total
-                  of those bars, starting at zero for the selected range. Summary cards stay on
-                  the full history.
+                  The curve is cumulative cash PnL. Candles underneath are that period’s own
+                  profit or loss. Periods with no transactions are skipped, so All stays on one
+                  screen. Summary cards stay on the full history.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
@@ -390,7 +403,7 @@ export function Dashboard() {
                     <span className="size-2.5 rounded-sm bg-[#FF6B6B]" /> Negative
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="h-0.5 w-4 bg-[#E4C27A]" /> Cumulative
+                    <span className="h-0.5 w-4 rounded-full bg-[#E4C27A]" /> Curve
                   </span>
                 </div>
                 {series.points.length === 0 ? (

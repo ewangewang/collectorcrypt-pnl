@@ -105,15 +105,6 @@ Chart buckets:
 - Weekly: the Monday of that week in the selected timezone
 - Monthly: that calendar month
 
-`7D`, `30D`, and `90D` are rolling windows of 7, 30, and 90 times 24 hours, ending now. `All` runs from the first dated transaction through today. Empty buckets inside the window stay on the chart as zero so the range change is visible. Each bar is the PnL of that bucket. The line is the running sum of the visible bars, starting at zero for the range. Transactions with an unavailable amount are counted in the summary when one side is known, and they are left off the bars.
+`7D`, `30D`, and `90D` are rolling windows of 7, 30, and 90 times 24 hours, ending now. `All` runs from the first dated transaction through today. A bucket with no transactions is omitted, so quiet days are not drawn as empty slots. The curve is the running sum of the buckets that remain, starting at zero for the range. Candles under the curve are each bucket’s own PnL. Transactions with an unavailable amount are counted in the summary when one side is known, and they are left off the candles.
 
-## Checks on the sample wallet
-
-`J4UkzdB3jwpe76jH3pgMjBuwMcCuWkUqXqdGxFQL2cGR` was read from the gacha API at 14:55 UTC on 13 Nov 2026:
-
-- 1,322 spins, 2 refunded, 1,320 counted
-- Spent 118,475.00 USDC
-- Returned 121,823.37 USDC from confirmed buybacks
-- Net +3,348.37 USDC
-
-That matches the expected snapshot (about 1,320 non-refunded packs, 118,475 USDC spent, about 121,823 USDC returned). The same address was still opening packs later that evening, so a later load is higher. The app reports the API’s current rows, not a frozen copy. Marketplace activity for this address was an empty list, so card buys and sales are `$0`, not unavailable. A handful of the newest spins can show `$0` returned until their buyback webhook is confirmed.
+The example address in the form is `7nB56jAXaU6qdQcDCH4MvPbztoemeZvAGpworbEHnPKW`. Totals are whatever the API returns at request time.
