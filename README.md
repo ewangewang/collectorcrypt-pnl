@@ -7,7 +7,7 @@ npm install
 npm run dev
 ```
 
-Open [http://127.0.0.1:43123](http://127.0.0.1:43123).
+Open [https://collectorcrypt-pnl-curve.vercel.app/).
 
 `npm test` checks the PnL math, Jakarta day boundaries, and chart bucketing.
 
